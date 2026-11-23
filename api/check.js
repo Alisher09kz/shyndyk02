@@ -81,7 +81,7 @@ async function callGemini(model, parts, timeoutMs) {
         headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
         body: JSON.stringify({
           contents: [{ role: "user", parts }],
-          generationConfig: { responseMimeType: "application/json", maxOutputTokens: 3072 },
+          generationConfig: { responseMimeType: "application/json", maxOutputTokens: 8192 },
         }),
       },
       timeoutMs
@@ -95,14 +95,23 @@ async function callGemini(model, parts, timeoutMs) {
 }
 
 function extractJson(data) {
-  const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
-  const txt = (parts || []).map((p) => p.text || "").join("");
+  const cand = data && data.candidates && data.candidates[0];
+  const parts = cand && cand.content && cand.content.parts;
+  const txt = (parts || []).filter((p) => !p.thought).map((p) => p.text || "").join("");
+  const info = {
+    finish: cand && cand.finishReason,
+    block: data && data.promptFeedback && data.promptFeedback.blockReason,
+    len: txt.length,
+    head: txt.slice(0, 160).replace(/\s+/g, " "),
+  };
   const a = txt.indexOf("{"), b = txt.lastIndexOf("}");
-  if (a < 0 || b < a) return null;
+  if (a < 0 || b < a) return { j: null, info };
   try {
     const j = JSON.parse(txt.slice(a, b + 1));
-    return Array.isArray(j.claims) && j.claims.length ? j : null;
-  } catch { return null; }
+    if (Array.isArray(j.claims) && j.claims.length) return { j, info };
+    info.why = "no_claims";
+  } catch (e) { info.why = "json_parse"; }
+  return { j: null, info };
 }
 
 async function runCheck(parts) {
@@ -121,8 +130,9 @@ async function runCheck(parts) {
         throw Object.assign(new Error("auth"), { code: "bad_key_or_request" });
       }
       if (status >= 500) { lastErr = "upstream"; continue; }
-      const j = extractJson(data);
+      const { j, info } = extractJson(data);
       if (j) return j;
+      console.error("Gemini bad output", model, JSON.stringify(info));
       lastErr = "bad_output";
     }
   }
