@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Шындық: AI фактчекер</title>
+<style>
+:root{--bg:#fbfbfd;--fg:#17161d;--mut:#6c6b78;--line:#e5e4ec;--card:#fff;--acc:#4f46e5;--ok:#1a9a68;--warn:#c58a0a;--bad:#d4414d;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121116;--fg:#ecebf3;--mut:#9a98a8;--line:#2b2934;--card:#1a1922;--acc:#8b83ff;--ok:#38c28d;--warn:#e3a62b;--bad:#ef6a74;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121116;--fg:#ecebf3;--mut:#9a98a8;--line:#2b2934;--card:#1a1922;--acc:#8b83ff;--ok:#38c28d;--warn:#e3a62b;--bad:#ef6a74;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+main{max-width:620px;margin:0 auto;padding:28px 20px 56px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:36px}
+h1{font-size:22px;font-weight:650;margin:0;letter-spacing:-.01em}
+.langs button{background:none;border:0;color:var(--mut);font:inherit;font-size:14px;padding:4px 7px;cursor:pointer;border-radius:6px}
+.langs button[aria-pressed=true]{color:var(--fg);font-weight:650}
+p.sub{color:var(--mut);margin:0 0 26px;font-size:17px}
+.tabs{display:flex;gap:4px;margin-bottom:12px}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--mut);font:inherit;padding:6px 10px 6px 0;margin-right:10px;cursor:pointer}
+.tabs button[aria-selected=true]{color:var(--fg);border-color:var(--acc)}
+textarea{width:100%;min-height:130px;resize:vertical;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:14px;font:inherit}
+textarea:focus,button:focus-visible,label.drop:focus-within{outline:2px solid var(--acc);outline-offset:2px}
+.drop{display:flex;align-items:center;justify-content:center;gap:10px;min-height:96px;margin-bottom:10px;border:1px dashed var(--line);border-radius:12px;color:var(--mut);cursor:pointer;text-align:center;padding:10px}
+.drop input{position:absolute;opacity:0;width:1px;height:1px}
+.drop img{max-height:140px;max-width:100%;border-radius:8px}
+.go{margin-top:14px;background:var(--acc);color:#fff;border:0;border-radius:10px;font:inherit;font-weight:600;padding:11px 22px;cursor:pointer}
+.go:disabled{opacity:.5;cursor:default}
+.hide{display:none!important}
+#out{margin-top:36px}
+.verdict{font-size:26px;font-weight:700;letter-spacing:-.01em;margin:0 0 4px}
+.v-ok{color:var(--ok)}.v-warn{color:var(--warn)}.v-bad{color:var(--bad)}
+.bar{position:relative;height:8px;border-radius:4px;margin:18px 0 6px;display:flex;overflow:visible}
+.bar i{display:block;height:100%}
+.bar i:nth-child(1){width:40%;background:var(--ok);border-radius:4px 0 0 4px}
+.bar i:nth-child(2){width:20%;background:var(--warn)}
+.bar i:nth-child(3){width:40%;background:var(--bad);border-radius:0 4px 4px 0}
+.mark{position:absolute;top:-5px;width:4px;height:18px;border-radius:2px;background:var(--fg);transform:translateX(-2px)}
+.scale{display:flex;justify-content:space-between;color:var(--mut);font-size:13px}
+h2{font-size:15px;font-weight:650;margin:28px 0 8px}
+ul{margin:0;padding-left:20px}li{margin:4px 0}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 12px;font-size:15px}
+.chip b{font-weight:650}.chip .sfx{color:var(--acc);font-weight:650}
+.chip small{display:block;color:var(--mut);font-size:13px}
+.note{color:var(--mut);font-size:13px;margin-top:32px}
+.err{color:var(--bad);margin-top:14px}
+.dots::after{content:"";animation:d 1.2s steps(4,end) infinite}
+@keyframes d{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+@media (prefers-reduced-motion:reduce){.dots::after{animation:none;content:"..."}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1 data-i="title"></h1>
+  <div class="langs" role="group" aria-label="Language">
+    <button data-l="kk">ҚАЗ</button><button data-l="ru">РУС</button><button data-l="en">ENG</button>
+  </div>
+</header>
+<p class="sub" data-i="sub"></p>
+
+<div class="tabs" role="tablist">
+  <button role="tab" data-m="text" data-i="tText"></button>
+  <button role="tab" data-m="link" data-i="tLink"></button>
+  <button role="tab" data-m="photo" data-i="tPhoto"></button>
+</div>
+<label class="drop hide" id="drop" tabindex="-1"><input type="file" id="file" accept="image/*"><span id="dropTxt" data-i="drop"></span></label>
+<textarea id="inp" rows="5"></textarea>
+<button class="go" id="go" data-i="check"></button>
+<div class="err hide" id="err" role="alert"></div>
+<section id="out" class="hide" aria-live="polite"></section>
+<p class="note" data-i="note"></p>
+</main>
+
+<script>
+const T={
+kk:{title:"Шындық",sub:"Мәтінді, сілтемені немесе суретті жасанды интеллект тексеріп, жалған болу ықтималдығын бағалайды.",tText:"Мәтін немесе сұрақ",tLink:"Сілтеме",tPhoto:"Сурет",
+ pText:"Жаңалықты немесе сұрағыңызды жазыңыз. Мысалы: «Ертең барлық мектеп жабылады дейді».",pLink:"Сілтемені қойыңыз. Қаласаңыз, төменге не туралы екенін жазыңыз.",pPhoto:"Суреттегі мәлімдеме туралы қосымша жазыңыз (міндетті емес).",
+ drop:"Суретті таңдаңыз",check:"Тексеру",wait:"Тексеріп жатыр",vOk:"Шынайы болуы ықтимал",vWarn:"Адамның тексеруі қажет",vBad:"Жалған болуы ықтимал",
+ prob:"Жалған болу ықтималдығы",claims:"Тексерілген тұжырымдар",cT:"Шынайы",cF:"Жалған",cU:"Белгісіз",why:"Себептері",morph:"Қосымшаларды талдау",tips:"Қалай тексеруге болады",empty:"Алдымен мәтін, сілтеме немесе сурет енгізіңіз.",
+ src:"Дереккөздер",rate:"Сұраныс тым жиі. Бірнеше секундтан соң қайталаңыз.",fail:"Тексеру орындалмады. Қайталап көріңіз.",nophoto:"Бұл жерде сурет қолдау таппады.",
+ note:"AI қателесуі мүмкін. Сілтеменің ішін ашпайды және суретті интернеттен іздемейді. Маңызды шешімдерде ресми дереккөзді тексеріңіз: соңғы сөзді адам айтады."},
+ru:{title:"Правда",sub:"Искусственный интеллект проверит текст, ссылку или фото и оценит вероятность того, что информация ложная.",tText:"Текст или вопрос",tLink:"Ссылка",tPhoto:"Фото",
+ pText:"Напишите новость или вопрос. Например: «Говорят, что завтра закроют все школы».",pLink:"Вставьте ссылку. При желании ниже напишите, о чём она.",pPhoto:"Напишите, какое утверждение на фото (необязательно).",
+ drop:"Выберите фото",check:"Проверить",wait:"Проверяю",vOk:"Скорее всего правда",vWarn:"Нужна проверка человеком",vBad:"Скорее всего ложь",
+ prob:"Вероятность, что это ложь",claims:"Проверенные утверждения",cT:"Правда",cF:"Ложь",cU:"Неясно",why:"Причины",morph:"Разбор казахских суффиксов",tips:"Как проверить самому",empty:"Сначала введите текст, ссылку или фото.",
+ src:"Источники",rate:"Слишком много запросов. Повторите через несколько секунд.",fail:"Не удалось проверить. Попробуйте ещё раз.",nophoto:"Фото здесь не поддерживаются.",
+ note:"ИИ может ошибаться. Он не открывает ссылки и не ищет фото в интернете. В важных случаях проверяйте официальные источники: последнее слово за человеком."},
+en:{title:"Truth",sub:"AI checks a text, link or photo and estimates how likely the information is to be false.",tText:"Text or question",tLink:"Link",tPhoto:"Photo",
+ pText:"Write a news item or a question. For example: “They say all schools will close tomorrow.”",pLink:"Paste a link. Optionally add below what it is about.",pPhoto:"Say which claim the photo makes (optional).",
+ drop:"Choose a photo",check:"Check",wait:"Checking",vOk:"Likely true",vWarn:"Needs a human check",vBad:"Likely false",
+ prob:"Probability of being false",claims:"Checked claims",cT:"True",cF:"False",cU:"Unclear",why:"Reasons",morph:"Kazakh suffix analysis",tips:"How to verify it yourself",empty:"Enter a text, link or photo first.",
+ src:"Sources",rate:"Too many requests. Try again in a few seconds.",fail:"The check failed. Please try again.",nophoto:"Photos are not supported here.",
+ note:"The AI can be wrong. It does not open links or search the web for photos. For important decisions check official sources: a human has the final word."}
+};
+let lang="kk",mode="text",img=null,busy=false;
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+
+function ui(){
+  document.documentElement.lang=lang;
+  $$("[data-i]").forEach(e=>e.textContent=T[lang][e.dataset.i]);
+  $$(".langs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.l===lang));
+  $$(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.m===mode));
+  $("#inp").placeholder=T[lang][{text:"pText",link:"pLink",photo:"pPhoto"}[mode]];
+  $("#drop").classList.toggle("hide",mode!=="photo");
+  $("#inp").style.minHeight=mode==="photo"?"72px":"130px";
+  if(!busy)$("#go").textContent=T[lang].check;
+  if(img)$("#dropTxt").textContent="";
+}
+$$(".langs button").forEach(b=>b.onclick=()=>{lang=b.dataset.l;ui()});
+$$(".tabs button").forEach(b=>b.onclick=()=>{mode=b.dataset.m;$("#err").classList.add("hide");ui()});
+
+async function shrink(f){
+  const bm=await createImageBitmap(f),s=Math.min(1,1280/Math.max(bm.width,bm.height));
+  const c=document.createElement("canvas");c.width=Math.round(bm.width*s);c.height=Math.round(bm.height*s);
+  c.getContext("2d").drawImage(bm,0,0,c.width,c.height);
+  return new Promise(r=>c.toBlob(r,"image/jpeg",.85));
+}
+$("#file").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{img=await shrink(f);const im=document.createElement("img");im.alt="";im.src=URL.createObjectURL(img);
+    $("#drop").replaceChildren($("#file"),im);}catch{img=null}
+};
+
+function fail(msg){const e=$("#err");e.textContent=msg;e.classList.remove("hide")}
+function el(tag,txt,cls){const n=document.createElement(tag);if(txt!=null)n.textContent=txt;if(cls)n.className=cls;return n}
+
+function pClaim(c){const k=Math.min(1,Math.max(0,Number(c.confidence)));const q=isNaN(k)?.5:k;return c.verdict==="false"?q:c.verdict==="true"?1-q:.5}
+function pFake(r){const cs=(r.claims||[]).filter(c=>c&&c.verdict);return cs.length?Math.max(...cs.map(pClaim)):.5}
+
+function show(r){
+  const p=pFake(r),t=T[lang];
+  const [txt,cls]=p<.4?[t.vOk,"v-ok"]:p>.6?[t.vBad,"v-bad"]:[t.vWarn,"v-warn"];
+  const o=$("#out");o.replaceChildren(el("p",txt,"verdict "+cls));
+  o.append(el("div",r.summary||""));
+  const bar=el("div",null,"bar");bar.append(el("i"),el("i"),el("i"));
+  const m=el("span",null,"mark");m.style.left=(p*100)+"%";bar.append(m);o.append(bar);
+  const sc=el("div",null,"scale");["0","0,4","0,6","1"].forEach(x=>sc.append(el("span",x)));o.append(sc);
+  o.append(el("div",`${t.prob}: ${Math.round(p*100)}%`,"scale"));
+  const cs=(r.claims||[]).filter(c=>c&&c.verdict);
+  if(cs.length){o.append(el("h2",t.claims));const u=el("ul");
+    cs.forEach(c=>{const li=el("li"),k={true:["cT","v-ok"],false:["cF","v-bad"]}[c.verdict]||["cU","v-warn"];
+      li.append(el("b",t[k[0]],k[1]),` ${c.text||""} `,el("span",c.why?"("+c.why+")":"","scale"));u.append(li)});o.append(u)}
+  const list=(h,a)=>{if(!a||!a.length)return;o.append(el("h2",h));const u=el("ul");a.forEach(x=>u.append(el("li",String(x))));o.append(u)};
+  if(Array.isArray(r.morphology)&&r.morphology.length){
+    o.append(el("h2",t.morph));const w=el("div",null,"chips");
+    r.morphology.slice(0,6).forEach(x=>{const c=el("div",null,"chip"),pt=x.parts||[];
+      const b=el("b");pt.forEach((s,i)=>{if(i)b.append("-");b.append(el("span",s,i?"sfx":""))});
+      c.append(el("div",x.word||""),b);if(x.note)c.append(el("small",x.note));w.append(c)});o.append(w);
+  }
+  list(t.tips,r.tips);
+  const su=(Array.isArray(r.sources)?r.sources:[]).filter(u=>/^https?:\/\//.test(String(u))).slice(0,5);
+  if(su.length){o.append(el("h2",t.src));const u=el("ul");su.forEach(x=>{const li=el("li"),a=el("a",String(x));a.href=String(x);a.target="_blank";a.rel="noopener noreferrer";li.append(a);u.append(li)});o.append(u)}
+  o.classList.remove("hide");o.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+function blobToB64(b){return new Promise((res,rej)=>{const f=new FileReader();f.onload=()=>res(String(f.result).split(",")[1]);f.onerror=rej;f.readAsDataURL(b)})}
+async function ask(text){
+  const body={text,mode,lang};
+  if(mode==="photo"&&img)body.image=await blobToB64(img);
+  const r=await fetch("/api/check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  let j=null;try{j=await r.json()}catch{}
+  if(!r.ok||!j||!j.result){const e=new Error("api");e.code=(j&&j.error)||String(r.status);throw e}
+  return j.result;
+}
+
+$("#go").onclick=async()=>{
+  if(busy)return;const text=$("#inp").value.trim(),t=T[lang];
+  $("#err").classList.add("hide");
+  if(!text&&!(mode==="photo"&&img))return fail(t.empty);
+  busy=true;$("#go").disabled=true;$("#go").textContent=t.wait;$("#go").classList.add("dots");
+  try{show(await ask(text))}
+  catch(e){fail(e&&(e.code==="rate_limited"||e.code==="429")?t.rate:t.fail)}
+  busy=false;$("#go").disabled=false;$("#go").classList.remove("dots");$("#go").textContent=T[lang].check;
+};
+
+ui();
+</script>
+</body>
+</html>
